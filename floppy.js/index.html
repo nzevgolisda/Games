@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sky Jet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(to bottom, #bae6fd, #f0f9ff);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+            color: #0f172a;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 24px 32px 32px 32px;
+            border-radius: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            max-width: 480px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #1e3a8a;
+            text-shadow: 0 4px 6px rgba(255, 255, 255, 0.8);
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        #gameCanvas {
+            background: #7dd3fc;
+            display: block;
+            margin: 0 auto;
+            border-radius: 16px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1), 0 10px 15px -3px rgba(0,0,0,0.1);
+            width: 100%;
+            height: auto;
+            aspect-ratio: 400 / 600;
+            border: 3px solid white;
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(6px);
+            border-radius: 16px;
+            margin: 3px;
+        }
+
+        .overlay-box {
+            background: rgba(255, 255, 255, 0.85);
+            padding: 24px 40px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid white;
+            max-width: 280px;
+            width: 90%;
+        }
+
+        .overlay-box h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+
+        .overlay-box p {
+            color: #334155;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+
+        .score-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding: 0 8px;
+            color: #1e293b;
+            font-weight: 700;
+            background: rgba(255,255,255,0.5);
+            border-radius: 9999px;
+            padding: 8px 16px;
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 0.8rem;
+            color: #475569;
+            letter-spacing: 1px;
+        }
+        
+        .btn-icon {
+            color: #1e3a8a;
+            font-size: 1.5rem;
+            animation: bounce 1.5s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(6px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1><i class="fas fa-plane-departure mr-2 text-blue-600"></i> SKY JET</h1>
+        
+        <div class="relative">
+            <canvas id="gameCanvas" width="400" height="600"></canvas>
+            
+            <!-- Start Screen -->
+            <div id="startScreen" class="overlay">
+                <div class="overlay-box">
+                    <h2>READY FOR TAKEOFF</h2>
+                    <p>Tap or press Space to fly</p>
+                    <div class="btn-icon">
+                        <i class="fas fa-arrow-up"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Over Screen -->
+            <div id="gameOverScreen" class="overlay" style="display: none;">
+                <div class="overlay-box">
+                    <h2>CRASH LANDING</h2>
+                    <p class="text-2xl font-bold text-red-500">SCORE: <span id="finalScore">0</span></p>
+                    <p class="text-sm mb-2">BEST: <span id="finalHighScore">0</span></p>
+                    <p>Tap or press Space to restart</p>
+                    <div class="btn-icon mt-2">
+                        <i class="fas fa-redo"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="score-area">
+            <div class="score-item">
+                <i class="fas fa-plane text-blue-600"></i>
+                <span id="score">0</span>
+            </div>
+            <div class="score-item">
+                <i class="fas fa-trophy text-yellow-500"></i>
+                <span id="highScore">0</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Clear skies ahead. Keep your wings level.</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const startScreen = document.getElementById('startScreen');
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const scoreDisplay = document.getElementById('score');
+            const finalScoreDisplay = document.getElementById('finalScore');
+            const finalHighScoreDisplay = document.getElementById('finalHighScore');
+            const highScoreDisplay = document.getElementById('highScore');
+
+            // Responsive sizing is handled by CSS aspect-ratio, 
+            // but we need logical dimensions for physics.
+            const W = 400, H = 600;
+            let highScore = parseInt(localStorage.getItem('skyJetHighScore') || '0');
+            highScoreDisplay.textContent = highScore;
+
+            // Game state
+            let gameRunning = false;
+            let score = 0;
+            let speed = 2.5;
+            const baseGap = 160;
+            let gap = baseGap;
+
+            // Jet (Bird) properties
+            const jet = {
+                x: 60,
+                y: H / 2,
+                width: 36,
+                height: 28,
+                velocity: 0,
+                gravity: 0.5,
+                lift: -9,
+                rotation: 0
+            };
+
+            let pipes = [];
+            let pipeTimer = 0;
+            const pipeInterval = 1500; // ms
+            let particles = [];
+            let clouds = [];
+            let lastTime = 0;
+
+            // --- Initialization ---
+            function initClouds() {
+                clouds = [];
+                for (let i = 0; i < 6; i++) {
+                    clouds.push({
+                        x: Math.random() * W,
+                        y: Math.random() * (H * 0.6),
+                        width: Math.random() * 80 + 60,
+                        speed: Math.random() * 0.3 + 0.1,
+                        opacity: Math.random() * 0.4 + 0.3
+                    });
+                }
+            }
+            initClouds();
+
+            // --- Particles (Smoke Trail) ---
+            function spawnTrail() {
+                const angle = jet.rotation + Math.PI / 2;
+                particles.push({
+                    x: jet.x - 10,
+                    y: jet.y + 6,
+                    vx: (Math.random() - 0.5) * 0.5 - Math.cos(angle) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5 + Math.sin(angle) * 0.5 - 0.2,
+                    life: 1,
+                    decay: 0.03 + Math.random() * 0.02,
+                    size: Math.random() * 6 + 4
+                });
+            }
+
+            function spawnExplosion(x, y) {
+                for (let i = 0; i < 40; i++) {
+                    const angle = Math.random() * 2 * Math.PI;
+                    const spd = Math.random() * 5 + 1;
+                    particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * spd,
+                        vy: Math.sin(angle) * spd,
+                        life: 1,
+                        decay: 0.02 + Math.random() * 0.03,
+                        size: Math.random() * 8 + 4,
+                        isExplosion: true
+                    });
+                }
+            }
+
+            // --- Obstacles ---
+            function createPipe() {
+                const topHeight = Math.random() * (H - gap - 80) + 40;
+                pipes.push({
+                    x: W,
+                    width: 50,
+                    topHeight: topHeight,
+                    bottomY: topHeight + gap,
+                    passed: false
+                });
+            }
+
+            function checkCollision() {
+                // Ground / Ceiling
+                if (jet.y + jet.height > H || jet.y < 0) return true;
+
+                for (const pipe of pipes) {
+                    if (jet.x + jet.width > pipe.x && jet.x < pipe.x + pipe.width) {
+                        if (jet.y < pipe.topHeight || jet.y + jet.height > pipe.bottomY) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // --- Reset & Game Flow ---
+            function resetGame() {
+                jet.y = H / 2;
+                jet.velocity = 0;
+                jet.rotation = 0;
+                pipes = [];
+                particles = [];
+                score = 0;
+                speed = 2.5;
+                gap = baseGap;
+                pipeTimer = 0;
+                scoreDisplay.textContent = score;
+            }
+
+            function startGame() {
+                resetGame();
+                gameRunning = true;
+                startScreen.style.display = 'none';
+                gameOverScreen.style.display = 'none';
+                lastTime = performance.now();
+                animate(lastTime);
+            }
+
+            function gameOver() {
+                gameRunning = false;
+                spawnExplosion(jet.x + jet.width/2, jet.y + jet.height/2);
+                gameOverScreen.style.display = 'flex';
+                finalScoreDisplay.textContent = score;
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreDisplay.textContent = highScore;
+                    localStorage.setItem('skyJetHighScore', String(highScore));
+                }
+                finalHighScoreDisplay.textContent = highScore;
+            }
+
+            // --- Input Handling ---
+            function handleInput(e) {
+                if (e.type === 'keydown' && e.code !== 'Space') return;
+                e.preventDefault();
+                if (!gameRunning) {
+                    startGame();
+                } else {
+                    jet.velocity = jet.lift;
+                    // Small burst of particles on flap
+                    for (let i = 0; i < 4; i++) {
+                        particles.push({
+                            x: jet.x - 4,
+                            y: jet.y + 4,
+                            vx: (Math.random() - 0.5) * 1.5,
+                            vy: (Math.random() - 0.5) * 1.5 - 1,
+                            life: 0.6,
+                            decay: 0.04,
+                            size: Math.random() * 4 + 2,
+                            isExplosion: false
+                        });
+                    }
+                }
+            }
+            document.addEventListener('keydown', handleInput);
+            canvas.addEventListener('touchstart', handleInput);
+            canvas.addEventListener('mousedown', handleInput);
+
+            // --- Update Logic ---
+            function update(delta) {
+                if (!gameRunning) return;
+                const dt = Math.min(delta, 50);
+                
+                // Jet physics
+                jet.velocity += jet.gravity * (dt / 16);
+                jet.y += jet.velocity * (dt / 16);
+                jet.rotation = Math.min(Math.max(jet.velocity * 0.06, -0.6), 0.8);
+
+                // Difficulty scaling
+                const difficulty = Math.floor(score / 4);
+                speed = 2.5 + difficulty * 0.15;
+                gap = Math.max(110, baseGap - difficulty * 2);
+
+                // Spawn pipes
+                pipeTimer += dt;
+                if (pipeTimer > pipeInterval - Math.min(difficulty * 15, 400)) {
+                    createPipe();
+                    pipeTimer = 0;
+                }
+
+                // Update pipes
+                for (let i = pipes.length - 1; i >= 0; i--) {
+                    const p = pipes[i];
+                    p.x -= speed * (dt / 16);
+                    if (!p.passed && jet.x > p.x + p.width) {
+                        p.passed = true;
+                        score++;
+                        scoreDisplay.textContent = score;
+                    }
+                    if (p.x + p.width < 0) pipes.splice(i, 1);
+                }
+
+                // Update particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.x += p.vx * (dt / 16);
+                    p.y += p.vy * (dt / 16);
+                    if (!p.isExplosion) p.vy += 0.02; // Smoke drifts up slightly
+                    p.life -= p.decay * (dt / 16);
+                    if (p.life <= 0) particles.splice(i, 1);
+                }
+
+                // Update clouds
+                for (const cloud of clouds) {
+                    cloud.x -= cloud.speed * (dt / 16);
+                    if (cloud.x + cloud.width < 0) {
+                        cloud.x = W + Math.random() * 100;
+                        cloud.y = Math.random() * (H * 0.5);
+                        cloud.width = Math.random() * 80 + 60;
+                    }
+                }
+
+                // Spawn trail
+                if (Math.random() < 0.6) spawnTrail();
+
+                if (checkCollision()) gameOver();
+            }
+
+            // --- Drawing Functions ---
+            function drawBackground() {
+                // Sky gradient
+                const grad = ctx.createLinearGradient(0, 0, 0, H);
+                grad.addColorStop(0, '#38bdf8');
+                grad.addColorStop(0.6, '#bae6fd');
+                grad.addColorStop(1, '#f0f9ff');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+
+                // Sun
+                ctx.shadowColor = '#fde047';
+                ctx.shadowBlur = 40;
+                ctx.beginPath();
+                ctx.arc(W - 60, 70, 45, 0, Math.PI * 2);
+                ctx.fillStyle = '#fef08a';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Clouds
+                for (const cloud of clouds) {
+                    ctx.globalAlpha = cloud.opacity;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = 'rgba(255,255,255,0.8)';
+                    ctx.shadowBlur = 20;
+                    const cx = cloud.x, cy = cloud.y, cw = cloud.width;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, cw * 0.5, 20, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(cx - cw * 0.3, cy + 10, cw * 0.3, 15, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(cx + cw * 0.3, cy + 8, cw * 0.3, 15, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+
+                // Hills
+                ctx.fillStyle = '#86efac';
+                ctx.beginPath();
+                ctx.moveTo(0, H);
+                ctx.quadraticCurveTo(W * 0.2, H - 60, W * 0.4, H);
+                ctx.fill();
+                ctx.fillStyle = '#4ade80';
+                ctx.beginPath();
+                ctx.moveTo(W * 0.3, H);
+                ctx.quadraticCurveTo(W * 0.6, H - 80, W * 0.8, H);
+                ctx.fill();
+                ctx.fillStyle = '#a3e635';
+                ctx.beginPath();
+                ctx.moveTo(W * 0.6, H);
+                ctx.quadraticCurveTo(W * 0.85, H - 50, W, H);
+                ctx.fill();
+            }
+
+            function drawPipes() {
+                for (const pipe of pipes) {
+                    // Shadow
+                    ctx.shadowColor = 'rgba(0,0,0,0.1)';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowOffsetY = 4;
+
+                    // Top pipe
+                    const gradTop = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipe.width, 0);
+                    gradTop.addColorStop(0, '#f8fafc');
+                    gradTop.addColorStop(1, '#cbd5e1');
+                    ctx.fillStyle = gradTop;
+                    ctx.fillRect(pipe.x, 0, pipe.width, pipe.topHeight);
+                    
+                    // Bottom pipe
+                    const gradBot = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipe.width, 0);
+                    gradBot.addColorStop(0, '#cbd5e1');
+                    gradBot.addColorStop(1, '#f8fafc');
+                    ctx.fillStyle = gradBot;
+                    ctx.fillRect(pipe.x, pipe.bottomY, pipe.width, H - pipe.bottomY);
+
+                    ctx.shadowBlur = 0;
+                    ctx.shadowOffsetY = 0;
+
+                    // Borders
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(pipe.x, 0, pipe.width, pipe.topHeight);
+                    ctx.strokeRect(pipe.x, pipe.bottomY, pipe.width, H - pipe.bottomY);
+
+                    // Red warning stripes on edges
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(pipe.x - 2, pipe.topHeight - 8, pipe.width + 4, 6);
+                    ctx.fillRect(pipe.x - 2, pipe.bottomY + 2, pipe.width + 4, 6);
+                    ctx.fillRect(pipe.x, 0, 4, 20);
+                    ctx.fillRect(pipe.x + pipe.width - 4, 0, 4, 20);
+                    ctx.fillRect(pipe.x, H - 20, 4, 20);
+                    ctx.fillRect(pipe.x + pipe.width - 4, H - 20, 4, 20);
+                }
+            }
+
+            function drawJet() {
+                const x = jet.x, y = jet.y, w = jet.width, h = jet.height;
+                ctx.save();
+                ctx.translate(x + w/2, y + h/2);
+                ctx.rotate(jet.rotation);
+                
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.15)';
+                ctx.shadowBlur = 16;
+                ctx.shadowOffsetY = 4;
+
+                // Main body
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, w/2, h/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Cockpit
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.ellipse(6, -3, 5, 10, 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#7dd3fc';
+                ctx.beginPath();
+                ctx.ellipse(7, -5, 2, 4, 0.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Red Nose
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.ellipse(14, 1, 6, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fca5a5';
+                ctx.beginPath();
+                ctx.ellipse(16, -1, 2, 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Left Wing
+                ctx.fillStyle = '#e2e8f0';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.moveTo(-4, -h/2 + 4);
+                ctx.lineTo(-w/2 + 6, -h/2 - 8);
+                ctx.lineTo(-4, -h/2 + 10);
+                ctx.fill();
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Right Wing
+                ctx.beginPath();
+                ctx.moveTo(-4, h/2 - 4);
+                ctx.lineTo(-w/2 + 6, h/2 + 8);
+                ctx.lineTo(-4, h/2 - 10);
+                ctx.fill();
+                ctx.stroke();
+
+                // Tail fins
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.moveTo(-w/2 + 2, -4);
+                ctx.lineTo(-w/2 - 10, -10);
+                ctx.lineTo(-w/2 + 2, 0);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(-w/2 + 2, 4);
+                ctx.lineTo(-w/2 - 10, 10);
+                ctx.lineTo(-w/2 + 2, 0);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+
+            function drawParticles() {
+                for (const p of particles) {
+                    ctx.globalAlpha = p.life * 0.8;
+                    ctx.fillStyle = p.isExplosion ? (Math.random() > 0.5 ? '#ef4444' : '#facc15') : '#f8fafc';
+                    ctx.shadowColor = '#ffffff';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+
+            function drawScore() {
+                if (gameRunning) {
+                    ctx.font = 'bold 36px Orbitron, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.shadowColor = 'rgba(255,255,255,0.8)';
+                    ctx.shadowBlur = 16;
+                    ctx.fillStyle = '#1e3a8a';
+                    ctx.fillText(score.toString(), W/2, 20);
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            function draw() {
+                drawBackground();
+                drawPipes();
+                drawParticles();
+                drawJet();
+                drawScore();
+            }
+
+            // --- Game Loop ---
+            function animate(currentTime) {
+                if (!gameRunning) return;
+                const delta = currentTime - lastTime;
+                lastTime = currentTime;
+                update(delta);
+                draw();
+                requestAnimationFrame(animate);
+            }
+
+            // --- Initial Setup ---
+            draw();
+        });
+    </script>
+</body>
+</html>
